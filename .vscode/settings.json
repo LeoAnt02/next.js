@@ -118,6 +118,5 @@
     "${workspaceRoot}/.git-blame-ignore-revs"
   ],
   "astGrep.serverPath": "node_modules/@ast-grep/cli/ast-grep",
-  "rust-analyzer.imports.prefix": "crate",
-  "jest.enable": false
+  "rust-analyzer.imports.prefix": "crate"
 }

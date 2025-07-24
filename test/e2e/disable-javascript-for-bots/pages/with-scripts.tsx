@@ -6,14 +6,12 @@ export default function WithScriptsPage() {
     <>
       <Head>
         <title>Page with Scripts</title>
-        {/* JavaScript scripts that SHOULD be removed */}
         <script
           dangerouslySetInnerHTML={{
             __html: `console.log('Head script executed');`,
           }}
         />
 
-        {/* Script preloads that SHOULD be removed */}
         <link
           rel="preload"
           as="script"
@@ -25,7 +23,6 @@ export default function WithScriptsPage() {
           as="script"
         />
 
-        {/* Non-JavaScript scripts that SHOULD be preserved */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -49,7 +46,6 @@ export default function WithScriptsPage() {
           }}
         />
 
-        {/* CSS and other links that SHOULD be preserved */}
         <link rel="stylesheet" href="/styles.css" />
         <link
           rel="preload"
@@ -64,7 +60,6 @@ export default function WithScriptsPage() {
         <h1>Page with Scripts</h1>
         <p id="content">This page contains various script tags</p>
 
-        {/* More JavaScript scripts that SHOULD be removed */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -91,7 +86,6 @@ export default function WithScriptsPage() {
 
         <script type="module" src="/module-script.js"></script>
 
-        {/* Another non-JavaScript script that SHOULD be preserved */}
         <script
           type="text/template"
           id="template-script"
