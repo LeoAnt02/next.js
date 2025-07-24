@@ -775,6 +775,14 @@ export interface ExperimentalConfig {
    * @default false
    */
   optimizeRouterScrolling?: boolean
+
+  /**
+   * When set to true, remove external JavaScript files (script tags with src pointing to .js files)
+   * and related preload links from HTML output for bots. Preserves all inline scripts,
+   * structured data, and other content.
+   * @default false
+   */
+  disableJavaScriptForBots?: boolean
 }
 
 export type ExportPathMap = {
@@ -1468,6 +1476,7 @@ export const defaultConfig = Object.freeze({
     devtoolSegmentExplorer: true,
     browserDebugInfoInTerminal: false,
     optimizeRouterScrolling: false,
+    disableJavaScriptForBots: false,
   },
   htmlLimitedBots: undefined,
   bundlePagesRouterDependencies: false,

@@ -955,6 +955,8 @@ export async function handler(
               RSC_CONTENT_TYPE_HEADER
             ),
             cacheControl: cacheEntry.cacheControl,
+            disableJavaScriptForBots:
+              nextConfig.experimental.disableJavaScriptForBots ?? false,
           })
         }
 
@@ -972,6 +974,8 @@ export async function handler(
           poweredByHeader: nextConfig.poweredByHeader,
           result: RenderResult.EMPTY,
           cacheControl: cacheEntry.cacheControl,
+          disableJavaScriptForBots:
+            nextConfig.experimental.disableJavaScriptForBots ?? false,
         })
       }
 
@@ -1084,6 +1088,8 @@ export async function handler(
             cacheControl: isDynamicRSCRequest
               ? { revalidate: 0, expire: undefined }
               : cacheEntry.cacheControl,
+            disableJavaScriptForBots:
+              nextConfig.experimental.disableJavaScriptForBots ?? false,
           })
         }
 
@@ -1099,6 +1105,8 @@ export async function handler(
             RSC_CONTENT_TYPE_HEADER
           ),
           cacheControl: cacheEntry.cacheControl,
+          disableJavaScriptForBots:
+            nextConfig.experimental.disableJavaScriptForBots ?? false,
         })
       }
 
@@ -1131,6 +1139,8 @@ export async function handler(
           poweredByHeader: nextConfig.poweredByHeader,
           result: body,
           cacheControl: cacheEntry.cacheControl,
+          disableJavaScriptForBots:
+            nextConfig.experimental.disableJavaScriptForBots ?? false,
         })
       }
 
@@ -1157,6 +1167,8 @@ export async function handler(
           poweredByHeader: nextConfig.poweredByHeader,
           result: body,
           cacheControl: { revalidate: 0, expire: undefined },
+          disableJavaScriptForBots:
+            nextConfig.experimental.disableJavaScriptForBots ?? false,
         })
       }
 
@@ -1215,6 +1227,8 @@ export async function handler(
         // the response being sent to the client it's dynamic parts are streamed
         // to the client on the same request.
         cacheControl: { revalidate: 0, expire: undefined },
+        disableJavaScriptForBots:
+          nextConfig.experimental.disableJavaScriptForBots ?? false,
       })
     }
 

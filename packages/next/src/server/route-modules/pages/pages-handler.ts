@@ -721,6 +721,8 @@ export const getHandler = ({
           generateEtags: nextConfig.generateEtags,
           poweredByHeader: nextConfig.poweredByHeader,
           cacheControl: routeModule.isDev ? undefined : cacheControl,
+          disableJavaScriptForBots:
+            nextConfig.experimental.disableJavaScriptForBots ?? false,
         })
       }
 
