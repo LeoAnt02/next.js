@@ -1,0 +1,26 @@
+title: disableJavaScriptForBots
+source: app/api-reference/config/next-config-js/disableJavaScriptForBots
+
+---
+
+The `disableJavaScriptForBots` option allows you to serve JavaScript-free HTML to bots while maintaining full functionality for regular users.
+
+## Configuration
+
+Add the `disableJavaScriptForBots` option to your `next.config.js`:
+
+```js filename="next.config.js"
+module.exports = {
+  experimental: {
+    disableJavaScriptForBots: true,
+  },
+}
+```
+
+## What gets removed
+
+For bot requests, the following elements are stripped from the HTML:
+
+- External JavaScript files: `<script src="*.js">`
+- Script preload links: `<link as="script">`
+- JavaScript preload links: `<link rel="preload" href="*.js">`

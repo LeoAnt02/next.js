@@ -126,7 +126,8 @@
     "useEarlyImport": false,
     "serverComponentsExternalPackages": [],
     "useLightningcss": true,
-    "optimizePackageImports": []
+    "optimizePackageImports": [],
+    "disableJavaScriptForBots": false
   },
   "configFile": "/tmp/ignore",
   "configFileName": "next.config.mjs",

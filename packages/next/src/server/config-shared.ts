@@ -804,12 +804,21 @@ export interface ExperimentalConfig {
   lockDistDir?: boolean
 
   /**
+   * When set to true, remove external JavaScript files (script tags with src pointing to .js files)
+   * and related preload links from HTML output for bots. Preserves all inline scripts,
+   * structured data, and other content.
+   * @default false
+   */
+  disableJavaScriptForBots?: boolean
+
+  /**
    * Hide logs that occur after a render has already aborted.
    * This can help reduce noise in the console when dealing with aborted renders.
    *
    * @default false
    */
   hideLogsAfterAbort?: boolean
+  optimizeRouterScrolling?: boolean
 }
 
 export type ExportPathMap = {
@@ -1528,10 +1537,12 @@ export const defaultConfig = Object.freeze({
     globalNotFound: false,
     browserDebugInfoInTerminal: false,
     lockDistDir: true,
+    disableJavaScriptForBots: false,
     isolatedDevBuild: true,
     proxyClientMaxBodySize: 10_485_760, // 10MB
     hideLogsAfterAbort: false,
     mcpServer: true,
+    optimizeRouterScrolling: false,
   },
   htmlLimitedBots: undefined,
   bundlePagesRouterDependencies: false,

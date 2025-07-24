@@ -236,7 +236,7 @@ export function getDefineEnv({
     'process.env.__NEXT_DEV_INDICATOR_POSITION':
       config.devIndicators === false
         ? 'bottom-left' // This will not be used as the indicator is disabled.
-        : (config.devIndicators.position ?? 'bottom-left'),
+        : config.devIndicators.position ?? 'bottom-left',
     'process.env.__NEXT_STRICT_MODE':
       config.reactStrictMode === null ? false : config.reactStrictMode,
     'process.env.__NEXT_STRICT_MODE_APP':
@@ -328,6 +328,8 @@ export function getDefineEnv({
       (config.experimental.turbopackFileSystemCacheForDev ?? false),
     'process.env.__NEXT_REACT_DEBUG_CHANNEL':
       config.experimental.reactDebugChannel ?? false,
+    'process.env.__NEXT_DISABLE_JAVASCRIPT_FOR_BOTS':
+      config.experimental.disableJavaScriptForBots ?? false,
     'process.env.__NEXT_TRANSITION_INDICATOR':
       config.experimental.transitionIndicator ?? false,
   }
