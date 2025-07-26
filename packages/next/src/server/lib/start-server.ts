@@ -34,6 +34,36 @@ import { AsyncCallbackSet } from './async-callback-set'
 import type { NextServer } from '../next'
 import type { ConfiguredExperimentalFeature } from '../config'
 
+// Lightweight logging functionality
+const getClientIp = (req: IncomingMessage): string | null => {
+  const xForwardedFor = req.headers['x-forwarded-for']
+  if (typeof xForwardedFor === 'string') {
+    return xForwardedFor.split(',')[0].trim()
+  }
+  return (
+    (req as any).ip ||
+    (req as any).connection?.remoteAddress ||
+    (req as any).socket?.remoteAddress ||
+    null
+  )
+}
+
+// Simple, performant logging function
+const logRequest = (req: IncomingMessage, res: ServerResponse) => {
+  const ip = getClientIp(req)
+  const userAgent = req.headers['user-agent']
+  Log.info(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      url: req.url,
+      ip,
+      userAgent,
+      statusCode: res.statusCode,
+    })
+  )
+}
+
 const debug = setupDebug('next:start-server')
 let startServerSpan: Span | undefined
 
@@ -219,6 +249,13 @@ export async function startServer(
   }
 
   async function requestListener(req: IncomingMessage, res: ServerResponse) {
+    const shouldLog =
+      process.env.STAGE !== 'dev' &&
+      !req.headers['user-agent']?.startsWith('kube-probe') &&
+      !req.url?.startsWith('/_next') &&
+      !req.url?.startsWith('/monitoring') &&
+      !req.url?.startsWith('/favicon.ico')
+
     try {
       if (handlersPromise) {
         await handlersPromise
@@ -231,6 +268,11 @@ export async function startServer(
       Log.error(`Failed to handle request for ${req.url}`)
       console.error(err)
     } finally {
+      // Log after request is processed to capture final status code
+      if (shouldLog) {
+        logRequest(req, res)
+      }
+
       if (isDev) {
         if (
           v8.getHeapStatistics().used_heap_size >
