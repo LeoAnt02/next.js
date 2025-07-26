@@ -35,7 +35,7 @@ const BACKUP_NPMRC = join(PACKAGE_DIR, '.npmrc.backup')
 const defaults = {
   registryUrl: process.env.NPM_REGISTRY_URL || 'https://registry.npmjs.org/',
   scope: process.env.NPM_SCOPE || '@leoant',
-  access: process.env.NPM_ACCESS || 'private',
+  access: process.env.NPM_ACCESS || 'restricted',
   dryRun: process.env.DRY_RUN === 'true',
 }
 
@@ -193,8 +193,8 @@ function validateInputs() {
     process.exit(1)
   }
 
-  if (!['private', 'public'].includes(config.access)) {
-    error("Access must be 'private' or 'public'")
+  if (!['restricted', 'public'].includes(config.access)) {
+    error("Access must be 'restricted' or 'public'")
     process.exit(1)
   }
 }
@@ -292,25 +292,16 @@ async function checkExistingVersion(packageName, version) {
 }
 
 async function buildPackage() {
-  const distPath = join(PACKAGE_DIR, 'dist')
+  log('Building package...')
 
-  if (!existsSync(distPath)) {
-    log('Building package...')
-
-    const buildScriptPath = join(__dirname, 'scripts/build.js')
-    if (existsSync(buildScriptPath)) {
-      try {
-        execSync('npm run build-next', {
-          cwd: __dirname,
-          stdio: 'inherit',
-        })
-      } catch (err) {
-        error(`Build failed: ${err.message}`)
-        process.exit(1)
-      }
-    } else {
-      warn('No build script found, assuming package is already built')
-    }
+  try {
+    execSync('pnpm turbo build --filter=@leoant/next', {
+      cwd: __dirname,
+      stdio: 'inherit',
+    })
+  } catch (err) {
+    error(`Build failed: ${err.message}`)
+    process.exit(1)
   }
 }
 
