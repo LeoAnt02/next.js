@@ -332,6 +332,8 @@ export function getDefineEnv({
       !isTurbopack || (config.experimental.turbopackPersistentCaching ?? false),
     'process.env.__NEXT_OPTIMIZE_ROUTER_SCROLL':
       config.experimental.optimizeRouterScrolling ?? false,
+    'process.env.__NEXT_DISABLE_JAVASCRIPT_FOR_BOTS':
+      config.experimental.disableJavaScriptForBots ?? false,
   }
 
   const userDefines = config.compiler?.define ?? {}
