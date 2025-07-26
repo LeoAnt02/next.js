@@ -30,6 +30,8 @@ const colors = {
 const PACKAGE_DIR = resolve(__dirname, 'packages/next')
 const ORIGINAL_NPMRC = join(PACKAGE_DIR, '.npmrc')
 const BACKUP_NPMRC = join(PACKAGE_DIR, '.npmrc.backup')
+const PACKAGE_JSON = join(PACKAGE_DIR, 'package.json')
+const PACKAGE_JSON_BACKUP = join(PACKAGE_DIR, 'package.json.backup')
 
 // Default values
 const defaults = {
@@ -187,8 +189,7 @@ function validateInputs() {
     process.exit(1)
   }
 
-  const packageJsonPath = join(PACKAGE_DIR, 'package.json')
-  if (!existsSync(packageJsonPath)) {
+  if (!existsSync(PACKAGE_JSON)) {
     error(`package.json not found in: ${PACKAGE_DIR}`)
     process.exit(1)
   }
@@ -200,12 +201,49 @@ function validateInputs() {
 }
 
 function getPackageInfo() {
-  const packageJsonPath = join(PACKAGE_DIR, 'package.json')
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
+  const packageJson = JSON.parse(readFileSync(PACKAGE_JSON, 'utf8'))
   return {
     name: packageJson.name,
     version: packageJson.version,
   }
+}
+
+function modifyPackageName() {
+  // Backup original package.json
+  copyFileSync(PACKAGE_JSON, PACKAGE_JSON_BACKUP)
+  log('Backed up original package.json')
+
+  // Add cleanup task to restore the original package.json
+  cleanupTasks.push(() => {
+    if (existsSync(PACKAGE_JSON_BACKUP)) {
+      copyFileSync(PACKAGE_JSON_BACKUP, PACKAGE_JSON)
+      unlinkSync(PACKAGE_JSON_BACKUP)
+      log('Restored original package.json')
+    }
+  })
+
+  // Read and modify package.json
+  const packageJson = JSON.parse(readFileSync(PACKAGE_JSON, 'utf8'))
+  const originalName = packageJson.name
+
+  // Create the scoped name
+  const scopedName = `${config.scope}/next`
+
+  if (originalName === scopedName) {
+    log('Package name already has correct scope')
+    return { originalName, scopedName }
+  }
+
+  // Modify the name
+  packageJson.name = scopedName
+
+  // Write the modified package.json
+  writeFileSync(PACKAGE_JSON, JSON.stringify(packageJson, null, 2) + '\n')
+  log(
+    `Temporarily changed package name from "${originalName}" to "${scopedName}"`
+  )
+
+  return { originalName, scopedName }
 }
 
 function setupNpmrc() {
@@ -291,11 +329,11 @@ async function checkExistingVersion(packageName, version) {
   }
 }
 
-async function buildPackage() {
+async function buildPackage(packageName) {
   log('Building package...')
 
   try {
-    execSync('pnpm turbo build --filter=@leoant/next', {
+    execSync('pnpm turbo build', {
       cwd: __dirname,
       stdio: 'inherit',
     })
@@ -358,11 +396,14 @@ async function publishPackage(packageName, version) {
   }
 }
 
-function showInstallationInstructions(packageName, version) {
+function showInstallationInstructions(packageName, version, originalName) {
   console.log('')
   success('Package published successfully!')
   console.log('')
-  log('To install this package, use:')
+  log('To install this package in your projects, use:')
+  console.log(`"${originalName}": "npm:${packageName}@${version}"`)
+  console.log('')
+  log('Or directly:')
   console.log(
     `npm install ${packageName}@${version} --registry=${config.registryUrl}`
   )
@@ -401,9 +442,12 @@ async function main() {
     log(`Access: ${config.access}`)
     log(`Dry run: ${config.dryRun}`)
 
-    // Get package information
-    const { name: packageName, version } = getPackageInfo()
-    log(`Current package: ${packageName}@${version}`)
+    // Get original package information
+    const { name: originalName, version } = getPackageInfo()
+    log(`Original package: ${originalName}@${version}`)
+
+    // Modify package name for publishing
+    const { scopedName } = modifyPackageName()
 
     // Setup npm registry configuration
     setupNpmrc()
@@ -411,21 +455,21 @@ async function main() {
     // Verify authentication
     await verifyAuthentication()
 
-    // Check if version already exists
-    await checkExistingVersion(packageName, version)
+    // Check if version already exists (using scoped name)
+    await checkExistingVersion(scopedName, version)
 
-    // Build package if needed
-    await buildPackage()
+    // Build package (using scoped name for turbo filter)
+    await buildPackage(scopedName)
 
     // Verify package contents
     await verifyPackageContents()
 
     // Publish the package
-    await publishPackage(packageName, version)
+    await publishPackage(scopedName, version)
 
     // Show installation instructions
     if (!config.dryRun) {
-      showInstallationInstructions(packageName, version)
+      showInstallationInstructions(scopedName, version, originalName)
     }
   } catch (err) {
     error(`Unexpected error: ${err.message}`)
