@@ -63,3 +63,5 @@ test-timings.json
 
 # Storybook
 *storybook.log
+
+publish-config.env
