@@ -328,8 +328,8 @@ export function getDefineEnv({
       (config.experimental.turbopackFileSystemCacheForDev ?? false),
     'process.env.__NEXT_REACT_DEBUG_CHANNEL':
       config.experimental.reactDebugChannel ?? false,
-    'process.env.__NEXT_DISABLE_JAVASCRIPT_FOR_BOTS':
-      config.experimental.disableJavaScriptForBots ?? false,
+    'process.env.__NEXT_OPTIMIZE_FOR_BOTS':
+      config.experimental.optimizeForBots ?? false,
     'process.env.__NEXT_TRANSITION_INDICATOR':
       config.experimental.transitionIndicator ?? false,
   }

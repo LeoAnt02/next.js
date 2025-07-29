@@ -369,7 +369,7 @@ export default abstract class Server<
       generateEtags: boolean
       poweredByHeader: boolean
       cacheControl: CacheControl | undefined
-      disableJavaScriptForBots: boolean
+      optimizeForBots: boolean
     }
   ): Promise<void>
 
@@ -1770,8 +1770,7 @@ export default abstract class Server<
         generateEtags,
         poweredByHeader,
         cacheControl,
-        disableJavaScriptForBots:
-          this.nextConfig.experimental.disableJavaScriptForBots ?? false,
+        optimizeForBots: this.nextConfig.experimental.optimizeForBots ?? false,
       })
       res.statusCode = originalStatus
     }

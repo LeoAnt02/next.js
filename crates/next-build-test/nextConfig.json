@@ -127,7 +127,7 @@
     "serverComponentsExternalPackages": [],
     "useLightningcss": true,
     "optimizePackageImports": [],
-    "disableJavaScriptForBots": false
+    "optimizeForBots": false
   },
   "configFile": "/tmp/ignore",
   "configFileName": "next.config.mjs",

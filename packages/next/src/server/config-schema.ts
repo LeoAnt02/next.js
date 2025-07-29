@@ -331,7 +331,7 @@ export const experimentalSchema = {
     })
     .optional(),
   globalNotFound: z.boolean().optional(),
-  disableJavaScriptForBots: z.boolean().optional(),
+  optimizeForBots: z.boolean().optional(),
   browserDebugInfoInTerminal: z
     .union([
       z.boolean(),

@@ -805,11 +805,12 @@ export interface ExperimentalConfig {
 
   /**
    * When set to true, remove external JavaScript files (script tags with src pointing to .js files)
+   * and font files pointing to .woff2 .woff .otf .ttf
    * and related preload links from HTML output for bots. Preserves all inline scripts,
    * structured data, and other content.
    * @default false
    */
-  disableJavaScriptForBots?: boolean
+  optimizeForBots?: boolean
 
   /**
    * Hide logs that occur after a render has already aborted.
@@ -1537,7 +1538,7 @@ export const defaultConfig = Object.freeze({
     globalNotFound: false,
     browserDebugInfoInTerminal: false,
     lockDistDir: true,
-    disableJavaScriptForBots: false,
+    optimizeForBots: false,
     isolatedDevBuild: true,
     proxyClientMaxBodySize: 10_485_760, // 10MB
     hideLogsAfterAbort: false,

@@ -1,18 +1,18 @@
-title: disableJavaScriptForBots
-source: app/api-reference/config/next-config-js/disableJavaScriptForBots
+title: optimizeForBots
+source: app/api-reference/config/next-config-js/optimizeForBots
 
 ---
 
-The `disableJavaScriptForBots` option allows you to serve JavaScript-free HTML to bots while maintaining full functionality for regular users.
+The `optimizeForBots` option allows you to serve JavaScript-free HTML to bots while maintaining full functionality for regular users.
 
 ## Configuration
 
-Add the `disableJavaScriptForBots` option to your `next.config.js`:
+Add the `optimizeForBots` option to your `next.config.js`:
 
 ```js filename="next.config.js"
 module.exports = {
   experimental: {
-    disableJavaScriptForBots: true,
+    optimizeForBots: true,
   },
 }
 ```

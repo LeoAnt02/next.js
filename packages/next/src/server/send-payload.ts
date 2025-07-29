@@ -8,7 +8,10 @@ import fresh from 'next/dist/compiled/fresh'
 import { getCacheControlHeader } from './lib/cache-control'
 import { HTML_CONTENT_TYPE_HEADER } from '../lib/constants'
 import { isBot } from '../shared/lib/router/utils/is-bot'
-import { removeJavaScriptFromHTML } from '../shared/lib/remove-js-from-html'
+import {
+  removeJavaScriptFromHTML,
+  removeFontFilesFromHTML,
+} from '../shared/lib/optimize-html'
 
 export function sendEtagResponse(
   req: IncomingMessage,
@@ -41,7 +44,7 @@ export async function sendRenderResult({
   generateEtags,
   poweredByHeader,
   cacheControl,
-  disableJavaScriptForBots,
+  optimizeForBots,
 }: {
   req: IncomingMessage
   res: ServerResponse
@@ -49,7 +52,7 @@ export async function sendRenderResult({
   generateEtags: boolean
   poweredByHeader: boolean
   cacheControl: CacheControl | undefined
-  disableJavaScriptForBots: boolean
+  optimizeForBots: boolean
 }): Promise<void> {
   if (isResSent(res)) {
     return
@@ -67,13 +70,14 @@ export async function sendRenderResult({
 
   let payload = result.isDynamic ? null : result.toUnchunkedString()
   if (
-    disableJavaScriptForBots &&
+    optimizeForBots &&
     payload &&
     result.contentType === HTML_CONTENT_TYPE_HEADER
   ) {
     const userAgent = req.headers['user-agent'] || ''
     if (isBot(userAgent)) {
       payload = removeJavaScriptFromHTML(payload)
+      payload = removeFontFilesFromHTML(payload)
     }
   }
 

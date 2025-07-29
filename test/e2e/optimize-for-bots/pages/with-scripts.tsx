@@ -1,3 +1,4 @@
+import React from 'react'
 import Head from 'next/head'
 import Script from 'next/script'
 
@@ -91,6 +92,31 @@ export default function WithScriptsPage() {
           id="template-script"
           dangerouslySetInnerHTML={{
             __html: `<div class="template">{{content}}</div>`,
+          }}
+        />
+
+        {/* Script that references .js files in content - should be removed for bots */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              const scriptUrl = '/_next/static/chunks/main.js';
+              const moduleUrl = '/assets/module.js';
+              console.log('Loading scripts:', scriptUrl, moduleUrl);
+            `,
+          }}
+        />
+
+        {/* Script that references font files in content - should be removed for bots */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              const fontUrls = [
+                '/fonts/roboto.woff2',
+                '/fonts/inter.woff',
+                '/fonts/opensans.ttf'
+              ];
+              fontUrls.forEach(url => console.log('Font:', url));
+            `,
           }}
         />
       </div>

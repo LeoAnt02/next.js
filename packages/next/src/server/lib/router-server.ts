@@ -9,6 +9,8 @@ import '../require-hook'
 
 import url from 'url'
 import path from 'path'
+import fs from 'fs/promises'
+import crypto from 'crypto'
 import loadConfig from '../config'
 import { serveStatic } from '../serve-static'
 import setupDebug from 'next/dist/compiled/debug'
@@ -59,6 +61,8 @@ import {
   handleChromeDevtoolsWorkspaceRequest,
   isChromeDevtoolsWorkspaceUrl,
 } from './chrome-devtools-workspace'
+import { isBot } from '../web/spec-extension/user-agent'
+import { removeFontFacesFromCSS } from '../../shared/lib/optimize-html'
 
 const debug = setupDebug('next:router-server:main')
 const isNextFont = (pathname: string | null) =>
@@ -492,6 +496,41 @@ export async function initialize(opts: {
               invokeStatus: 405,
             }
           )
+        }
+
+        // Check if we should process CSS files to remove @font-face for bots
+        if (
+          config.experimental.optimizeForBots &&
+          parsedUrl.pathname?.endsWith('.css')
+        ) {
+          const userAgent = req.headers['user-agent'] || ''
+          if (isBot(userAgent)) {
+            try {
+              const fullPath = path.join(
+                matchedOutput.itemsRoot || '',
+                matchedOutput.itemPath
+              )
+              const cssContent = await fs.readFile(fullPath, 'utf-8')
+
+              // Check if CSS contains @font-face declarations
+              if (cssContent.includes('@font-face')) {
+                const processedCSS = removeFontFacesFromCSS(cssContent)
+
+                res.setHeader('Content-Type', 'text/css; charset=utf-8')
+                res.setHeader('Content-Length', Buffer.byteLength(processedCSS))
+                if (config.generateEtags) {
+                  const etag = `"${crypto.createHash('sha1').update(processedCSS).digest('hex')}"`
+                  res.setHeader('ETag', etag)
+                }
+                res.end(processedCSS)
+                return
+              }
+              // If no @font-face found, fall through to serve original CSS
+            } catch (err) {
+              // If processing fails, fall back to serving the original file
+              console.warn('Failed to process CSS for bot:', err)
+            }
+          }
         }
 
         try {
