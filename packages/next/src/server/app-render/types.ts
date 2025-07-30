@@ -103,6 +103,7 @@ export interface RenderOptsPartial {
   nextFontManifest?: DeepReadonly<NextFontManifest>
   botType?: 'dom' | 'html' | undefined
   serveStreamingMetadata?: boolean
+  optimizeForBots?: boolean
   incrementalCache?: import('../lib/incremental-cache').IncrementalCache
   cacheLifeProfiles?: {
     [profile: string]: import('../use-cache/cache-life').CacheLife

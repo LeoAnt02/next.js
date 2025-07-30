@@ -146,6 +146,7 @@ async function requestHandler(
       previewProps: prerenderManifest.preview,
       deploymentId: nextConfig.deploymentId,
       enableTainting: nextConfig.experimental.taint,
+      optimizeForBots: nextConfig.experimental.optimizeForBots,
       htmlLimitedBots: nextConfig.htmlLimitedBots,
       reactMaxHeadersLength: nextConfig.reactMaxHeadersLength,
 

@@ -12,6 +12,10 @@ import {
 import { MISSING_ROOT_TAGS_ERROR } from '../../shared/lib/errors/constants'
 import { insertBuildIdComment } from '../../shared/lib/segment-cache/output-export-prefetch-encoding'
 import {
+  removeJavaScriptFromHTML,
+  removeFontFilesFromHTML,
+} from '../../shared/lib/optimize-html'
+import {
   RSC_HEADER,
   NEXT_ROUTER_PREFETCH_HEADER,
   NEXT_ROUTER_SEGMENT_PREFETCH_HEADER,
@@ -767,18 +771,39 @@ function chainTransformers<T>(
   return stream
 }
 
+// Create a transform stream for optimizing HTML for bots
+function createBotOptimizationTransformStream(): TransformStream<
+  Uint8Array,
+  Uint8Array
+> {
+  let buffer = ''
+  const decoder = new TextDecoder()
+  return new TransformStream({
+    transform(chunk, _controller) {
+      // Accumulate chunks to ensure we have complete HTML structure
+      buffer += decoder.decode(chunk, { stream: true })
+    },
+    flush(controller) {
+      // Process the complete HTML buffer for bot optimization
+      if (buffer) {
+        let optimizedHTML = removeJavaScriptFromHTML(buffer)
+        optimizedHTML = removeFontFilesFromHTML(optimizedHTML)
+        controller.enqueue(encoder.encode(optimizedHTML))
+      }
+    },
+  })
+}
+
 export type ContinueStreamOptions = {
-  inlinedDataStream: ReadableStream<Uint8Array> | undefined
-  isStaticGeneration: boolean
-  isBuildTimePrerendering: boolean
-  buildId: string
+  suffix?: string | undefined
+  inlinedDataStream?: ReadableStream<Uint8Array> | undefined
+  isStaticGeneration?: boolean | undefined
+  isBuildTimePrerendering?: boolean | undefined
+  buildId?: string | undefined
   getServerInsertedHTML: () => Promise<string>
   getServerInsertedMetadata: () => Promise<string>
-  validateRootLayout?: boolean
-  /**
-   * Suffix to inject after the buffered data, but before the close tags.
-   */
-  suffix?: string | undefined
+  validateRootLayout?: boolean | undefined
+  optimizeForBots?: boolean | undefined
 }
 
 export async function continueFizzStream(
@@ -792,6 +817,7 @@ export async function continueFizzStream(
     getServerInsertedHTML,
     getServerInsertedMetadata,
     validateRootLayout,
+    optimizeForBots,
   }: ContinueStreamOptions
 ): Promise<ReadableStream<Uint8Array>> {
   // Suffix itself might contain close tags at the end, so we need to split it.
@@ -802,12 +828,12 @@ export async function continueFizzStream(
     await renderStream.allReady
   }
 
-  return chainTransformers(renderStream, [
+  const transformers = [
     // Buffer everything to avoid flushing too frequently
     createBufferedTransformStream(),
 
     // Add build id comment to start of the HTML document (in export mode)
-    createPrefetchCommentStream(isBuildTimePrerendering, buildId),
+    createPrefetchCommentStream(!!isBuildTimePrerendering, buildId || ''),
 
     // Transform metadata
     createMetadataTransformStream(getServerInsertedMetadata),
@@ -832,7 +858,12 @@ export async function continueFizzStream(
     // TODO-APP: Insert server side html to end of head in app layout rendering, to avoid
     // hydration errors. Remove this once it's ready to be handled by react itself.
     createHeadInsertionTransformStream(getServerInsertedHTML),
-  ])
+
+    // Bot optimization (remove JavaScript and fonts for bots) - should be last
+    optimizeForBots ? createBotOptimizationTransformStream() : null,
+  ]
+
+  return chainTransformers(renderStream, transformers)
 }
 
 type ContinueDynamicPrerenderOptions = {

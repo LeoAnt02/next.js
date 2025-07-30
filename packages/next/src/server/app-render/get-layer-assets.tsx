@@ -5,6 +5,7 @@ import { getAssetQueryString } from './get-asset-query-string'
 import { encodeURIPath } from '../../shared/lib/encode-uri-path'
 import type { PreloadCallbacks } from './types'
 import { renderCssResource } from './render-css-resource'
+import { isBot } from '../../shared/lib/router/utils/is-bot'
 
 export function getLayerAssets({
   ctx,
@@ -42,7 +43,11 @@ export function getLayerAssets({
       )
     : null
 
-  if (preloadedFontFiles) {
+  // Check if we should skip font preloading for bots
+  const shouldSkipFontPreloading =
+    ctx.renderOpts.optimizeForBots && isBot(ctx.userAgent)
+
+  if (preloadedFontFiles && !shouldSkipFontPreloading) {
     if (preloadedFontFiles.length) {
       for (let i = 0; i < preloadedFontFiles.length; i++) {
         const fontFilename = preloadedFontFiles[i]

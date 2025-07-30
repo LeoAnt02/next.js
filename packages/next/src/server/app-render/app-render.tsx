@@ -258,6 +258,7 @@ export type AppRenderContext = {
   isNotFoundPath: boolean
   nonce: string | undefined
   res: BaseNextResponse
+  userAgent: string
   /**
    * For now, the implicit tags are common for the whole route. If we ever start
    * rendering/revalidating segments independently, they need to move to the
@@ -1997,6 +1998,7 @@ async function renderToHTMLOrFlightImpl(
     isNotFoundPath,
     nonce,
     res,
+    userAgent: req.headers['user-agent'] || '',
     sharedContext,
     implicitTags,
   }
@@ -2873,6 +2875,7 @@ async function renderToStream(
       getServerInsertedHTML,
       getServerInsertedMetadata,
       validateRootLayout: dev,
+      optimizeForBots: ctx.renderOpts.optimizeForBots && !!botType,
     })
   } catch (err) {
     if (
@@ -3030,6 +3033,7 @@ async function renderToStream(
         }),
         getServerInsertedMetadata,
         validateRootLayout: dev,
+        optimizeForBots: ctx.renderOpts.optimizeForBots && !!botType,
       })
     } catch (finalErr: any) {
       if (
@@ -5206,6 +5210,7 @@ async function prerenderToStream(
           buildId: ctx.workStore.buildId,
           getServerInsertedHTML,
           getServerInsertedMetadata,
+          optimizeForBots: ctx.renderOpts.optimizeForBots && !!botType,
         }),
         // TODO: Should this include the SSR pass?
         collectedRevalidate: prerenderLegacyStore.revalidate,
@@ -5393,6 +5398,7 @@ async function prerenderToStream(
           }),
           getServerInsertedMetadata,
           validateRootLayout: dev,
+          optimizeForBots: ctx.renderOpts.optimizeForBots && !!botType,
         }),
         dynamicAccess: null,
         collectedRevalidate:

@@ -532,6 +532,7 @@ export default abstract class Server<
       serverComponents: this.enabledDirectories.app,
       cacheLifeProfiles: this.nextConfig.cacheLife,
       enableTainting: this.nextConfig.experimental.taint,
+      optimizeForBots: this.nextConfig.experimental.optimizeForBots,
       crossOrigin: this.nextConfig.crossOrigin
         ? this.nextConfig.crossOrigin
         : undefined,
