@@ -158,14 +158,12 @@ export function createMetadataComponents({
       )
     }
     return (
-      <div hidden>
-        <MetadataBoundary>
-          <Suspense name="Next.Metadata">
-            {/* @ts-expect-error -- Promise<ReactNode> not considered a valid child even though it is */}
-            {pendingMetadataTags}
-          </Suspense>
-        </MetadataBoundary>
-      </div>
+      <MetadataBoundary>
+        <Suspense name="Next.Metadata">
+          {/* @ts-expect-error -- Promise<ReactNode> not considered a valid child even though it is */}
+          {pendingMetadataTags}
+        </Suspense>
+      </MetadataBoundary>
     )
   }
   Metadata.displayName = 'Next.Metadata'
