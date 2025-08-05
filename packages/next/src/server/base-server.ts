@@ -1737,7 +1737,10 @@ export default abstract class Server<
       renderOpts: {
         ...this.renderOpts,
         // `renderOpts.botType` is accumulated in `this.renderImpl()`
-        supportsDynamicResponse: !this.renderOpts.botType,
+        // In development mode, always support dynamic responses regardless of bot detection
+        supportsDynamicResponse: this.renderOpts.dev
+          ? true
+          : !this.renderOpts.botType,
         serveStreamingMetadata: shouldServeStreamingMetadata(
           ua,
           this.nextConfig.htmlLimitedBots
