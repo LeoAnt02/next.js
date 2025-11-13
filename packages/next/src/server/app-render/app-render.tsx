@@ -2875,7 +2875,8 @@ async function renderToStream(
       getServerInsertedHTML,
       getServerInsertedMetadata,
       validateRootLayout: dev,
-      optimizeForBots: ctx.renderOpts.optimizeForBots && !!botType,
+      optimizeForBots:
+        ctx.renderOpts.optimizeForBots && !!ctx.renderOpts.botType,
     })
   } catch (err) {
     if (
@@ -3033,7 +3034,8 @@ async function renderToStream(
         }),
         getServerInsertedMetadata,
         validateRootLayout: dev,
-        optimizeForBots: ctx.renderOpts.optimizeForBots && !!botType,
+        optimizeForBots:
+          ctx.renderOpts.optimizeForBots && !!ctx.renderOpts.botType,
       })
     } catch (finalErr: any) {
       if (
@@ -5210,7 +5212,8 @@ async function prerenderToStream(
           buildId: ctx.workStore.buildId,
           getServerInsertedHTML,
           getServerInsertedMetadata,
-          optimizeForBots: ctx.renderOpts.optimizeForBots && !!botType,
+          optimizeForBots:
+            ctx.renderOpts.optimizeForBots && !!ctx.renderOpts.botType,
         }),
         // TODO: Should this include the SSR pass?
         collectedRevalidate: prerenderLegacyStore.revalidate,
@@ -5398,7 +5401,8 @@ async function prerenderToStream(
           }),
           getServerInsertedMetadata,
           validateRootLayout: dev,
-          optimizeForBots: ctx.renderOpts.optimizeForBots && !!botType,
+          optimizeForBots:
+            ctx.renderOpts.optimizeForBots && !!ctx.renderOpts.botType,
         }),
         dynamicAccess: null,
         collectedRevalidate:
