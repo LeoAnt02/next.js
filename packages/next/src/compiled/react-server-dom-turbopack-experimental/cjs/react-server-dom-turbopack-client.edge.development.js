@@ -4704,6 +4704,7 @@
                 65 === rowState ||
                 79 === rowState ||
                 111 === rowState ||
+                98 === rowState ||
                 85 === rowState ||
                 83 === rowState ||
                 115 === rowState ||
@@ -4744,14 +4745,21 @@
                 endTime,
                 debugInfo - i
               )),
-                processFullBinaryRow(
-                  response,
-                  _ref,
-                  rowID,
-                  rowTag,
-                  buffer,
-                  rowLength
-                ),
+                98 === rowTag
+                  ? resolveBuffer(
+                      response,
+                      rowID,
+                      debugInfo === chunkLength ? rowLength : rowLength.slice(),
+                      _ref
+                    )
+                  : processFullBinaryRow(
+                      response,
+                      _ref,
+                      rowID,
+                      rowTag,
+                      buffer,
+                      rowLength
+                    ),
                 (i = debugInfo),
                 3 === rowState && i++,
                 (rowLength = rowID = rowTag = rowState = 0),
@@ -4762,8 +4770,10 @@
                 endTime,
                 value.byteLength - i
               );
-              buffer.push(value);
-              rowLength -= value.byteLength;
+              98 === rowTag
+                ? ((rowLength -= value.byteLength),
+                  resolveBuffer(response, rowID, value, _ref))
+                : (buffer.push(value), (rowLength -= value.byteLength));
               break;
             }
           }
