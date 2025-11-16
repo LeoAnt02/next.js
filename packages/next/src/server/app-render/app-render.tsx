@@ -454,7 +454,7 @@ async function generateDynamicRSCPayload(
   ctx: AppRenderContext,
   options?: {
     actionResult?: ActionResult
-    skipFlight?: boolean
+    skipPageRendering?: boolean
     runtimePrefetchSentinel?: number
   }
 ): Promise<RSCPayload> {
@@ -486,7 +486,7 @@ async function generateDynamicRSCPayload(
 
   const serveStreamingMetadata = !!ctx.renderOpts.serveStreamingMetadata
 
-  if (!options?.skipFlight) {
+  if (!options?.skipPageRendering) {
     const preloadCallbacks: PreloadCallbacks = []
 
     const { Viewport, Metadata, MetadataOutlet } = createMetadataComponents({
@@ -589,10 +589,11 @@ async function generateDynamicFlightRenderResult(
   requestStore: RequestStore,
   options?: {
     actionResult: ActionResult
-    skipFlight: boolean
+    skipPageRendering: boolean
     componentTree?: CacheNodeSeedData
     preloadCallbacks?: PreloadCallbacks
     temporaryReferences?: WeakMap<any, string>
+    waitUntil?: Promise<unknown>
   }
 ): Promise<RenderResult> {
   const {
@@ -650,9 +651,11 @@ async function generateDynamicFlightRenderResult(
     }
   )
 
-  return new FlightRenderResult(flightReadableStream, {
-    fetchMetrics: workStore.fetchMetrics,
-  })
+  return new FlightRenderResult(
+    flightReadableStream,
+    { fetchMetrics: workStore.fetchMetrics },
+    options?.waitUntil
+  )
 }
 
 type RenderToReadableStreamServerOptions = NonNullable<
