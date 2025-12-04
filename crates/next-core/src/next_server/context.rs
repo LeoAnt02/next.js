@@ -6,12 +6,10 @@ use turbo_rcstr::{RcStr, rcstr};
 use turbo_tasks::{ResolvedVc, TaskInput, Vc, trace::TraceRawVcs};
 use turbo_tasks_fs::FileSystemPath;
 use turbopack::{
-    css::chunk::CssChunkType,
     module_options::{
         CssOptionsContext, EcmascriptOptionsContext, ExternalsTracingOptions, JsxTransformOptions,
         ModuleOptionsContext, ModuleRule, TypescriptTransformOptions,
     },
-    resolve_options_context::ResolveOptionsContext,
     transition::Transition,
 };
 use turbopack_core::{
@@ -23,9 +21,10 @@ use turbopack_core::{
     compile_time_info::{CompileTimeDefines, CompileTimeInfo, FreeVarReferences},
     environment::{Environment, ExecutionEnvironment, NodeJsEnvironment, NodeJsVersion},
     free_var_references,
-    module_graph::export_usage::OptionExportUsageInfo,
+    module_graph::binding_usage_info::OptionBindingUsageInfo,
     target::CompileTarget,
 };
+use turbopack_css::chunk::CssChunkType;
 use turbopack_ecmascript::{
     AnalyzeMode, TypeofWindow, chunk::EcmascriptChunkType, references::esm::UrlRewriteBehavior,
 };
@@ -37,6 +36,7 @@ use turbopack_node::{
     transforms::postcss::{PostCssConfigLocation, PostCssTransformOptions},
 };
 use turbopack_nodejs::NodeJsChunkingContext;
+use turbopack_resolve::resolve_options_context::ResolveOptionsContext;
 
 use super::{
     resolve::ExternalCjsModulesResolvePlugin,
@@ -73,7 +73,7 @@ use crate::{
     },
     util::{
         NextRuntime, OptionEnvMap, defines, foreign_code_context_condition,
-        get_transpiled_packages, internal_assets_conditions, load_next_js_templateon,
+        get_transpiled_packages, internal_assets_conditions, load_next_js_jsonc_file,
         module_styles_rule_condition,
     },
 };
@@ -162,9 +162,9 @@ pub async fn get_server_resolve_options_context(
             .await?;
 
     // Always load these predefined packages as external.
-    let mut external_packages: Vec<RcStr> = load_next_js_templateon(
+    let mut external_packages: Vec<RcStr> = load_next_js_jsonc_file(
         project_path.clone(),
-        rcstr!("dist/lib/server-external-packages.json"),
+        rcstr!("dist/lib/server-external-packages.jsonc"),
     )
     .await?;
 
@@ -199,7 +199,6 @@ pub async fn get_server_resolve_options_context(
     external_packages.retain(|item| !transpiled_packages.contains(item));
 
     let server_external_packages_plugin = ExternalCjsModulesResolvePlugin::new(
-        project_path.clone(),
         project_path.root().owned().await?,
         ExternalPredicate::Only(ResolvedVc::cell(external_packages)).cell(),
         *next_config.import_externals().await?,
@@ -225,7 +224,6 @@ pub async fn get_server_resolve_options_context(
         server_external_packages_plugin
     } else {
         ExternalCjsModulesResolvePlugin::new(
-            project_path.clone(),
             project_path.root().owned().await?,
             ExternalPredicate::AllExcept(ResolvedVc::cell(transpiled_packages)).cell(),
             *next_config.import_externals().await?,
@@ -421,7 +419,7 @@ pub async fn get_tracing_compile_time_info() -> Result<Vc<CompileTimeInfo>> {
     */
     .defines(
         compile_time_defines!(
-            process.env.TURBOPACK = true,
+            process.env.TURBOPACK = "1",
             // process.env.NODE_ENV = "production",
         )
         .resolved_cell(),
@@ -577,11 +575,7 @@ pub async fn get_server_module_options_context(
     .flatten()
     .collect();
 
-    let source_maps = if *next_config.server_source_maps().await? {
-        SourceMapsType::Full
-    } else {
-        SourceMapsType::None
-    };
+    let source_maps = *next_config.server_source_maps().await?;
     let module_options_context = ModuleOptionsContext {
         ecmascript: EcmascriptOptionsContext {
             enable_typeof_window_inlining: Some(TypeofWindow::Undefined),
@@ -995,11 +989,13 @@ pub struct ServerChunkingContextOptions {
     pub node_root_to_root_path: RcStr,
     pub environment: Vc<Environment>,
     pub module_id_strategy: Vc<Box<dyn ModuleIdStrategy>>,
-    pub export_usage: Vc<OptionExportUsageInfo>,
-    pub turbo_minify: Vc<bool>,
-    pub turbo_source_maps: Vc<bool>,
+    pub export_usage: Vc<OptionBindingUsageInfo>,
+    pub unused_references: Vc<OptionBindingUsageInfo>,
+    pub minify: Vc<bool>,
+    pub source_maps: Vc<SourceMapsType>,
     pub no_mangling: Vc<bool>,
     pub scope_hoisting: Vc<bool>,
+    pub nested_async_chunking: Vc<bool>,
     pub debug_ids: Vc<bool>,
     pub client_root: FileSystemPath,
     pub asset_prefix: RcStr,
@@ -1018,10 +1014,12 @@ pub async fn get_server_chunking_context_with_client_assets(
         environment,
         module_id_strategy,
         export_usage,
-        turbo_minify,
-        turbo_source_maps,
+        unused_references,
+        minify,
+        source_maps,
         no_mangling,
         scope_hoisting,
+        nested_async_chunking,
         debug_ids,
         client_root,
         asset_prefix,
@@ -1042,7 +1040,7 @@ pub async fn get_server_chunking_context_with_client_assets(
         next_mode.runtime_type(),
     )
     .asset_prefix(Some(asset_prefix))
-    .minify_type(if *turbo_minify.await? {
+    .minify_type(if *minify.await? {
         MinifyType::Minify {
             // React needs deterministic function names to work correctly.
             mangle: (!*no_mangling.await?).then_some(MangleType::Deterministic),
@@ -1050,15 +1048,13 @@ pub async fn get_server_chunking_context_with_client_assets(
     } else {
         MinifyType::NoMinify
     })
-    .source_maps(if *turbo_source_maps.await? {
-        SourceMapsType::Full
-    } else {
-        SourceMapsType::None
-    })
+    .source_maps(*source_maps.await?)
     .module_id_strategy(module_id_strategy.to_resolved().await?)
     .export_usage(*export_usage.await?)
+    .unused_references(*unused_references.await?)
     .file_tracing(next_mode.is_production())
-    .debug_ids(*debug_ids.await?);
+    .debug_ids(*debug_ids.await?)
+    .nested_async_availability(*nested_async_chunking.await?);
 
     builder = builder.source_map_source_type(if next_mode.is_development() {
         SourceMapSourceType::AbsoluteFileUri
@@ -1102,10 +1098,12 @@ pub async fn get_server_chunking_context(
         environment,
         module_id_strategy,
         export_usage,
-        turbo_minify,
-        turbo_source_maps,
+        unused_references,
+        minify,
+        source_maps,
         no_mangling,
         scope_hoisting,
+        nested_async_chunking,
         debug_ids,
         client_root,
         asset_prefix,
@@ -1127,22 +1125,20 @@ pub async fn get_server_chunking_context(
     .client_roots_override(rcstr!("client"), client_root.clone())
     .asset_root_path_override(rcstr!("client"), client_root.join("static/media")?)
     .asset_prefix_override(rcstr!("client"), asset_prefix)
-    .minify_type(if *turbo_minify.await? {
+    .minify_type(if *minify.await? {
         MinifyType::Minify {
             mangle: (!*no_mangling.await?).then_some(MangleType::OptimalSize),
         }
     } else {
         MinifyType::NoMinify
     })
-    .source_maps(if *turbo_source_maps.await? {
-        SourceMapsType::Full
-    } else {
-        SourceMapsType::None
-    })
+    .source_maps(*source_maps.await?)
     .module_id_strategy(module_id_strategy.to_resolved().await?)
     .export_usage(*export_usage.await?)
+    .unused_references(*unused_references.await?)
     .file_tracing(next_mode.is_production())
-    .debug_ids(*debug_ids.await?);
+    .debug_ids(*debug_ids.await?)
+    .nested_async_availability(*nested_async_chunking.await?);
 
     if next_mode.is_development() {
         builder = builder.source_map_source_type(SourceMapSourceType::AbsoluteFileUri);

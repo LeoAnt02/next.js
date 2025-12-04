@@ -44,10 +44,14 @@ import { traceGlobals } from '../../trace/shared'
 import { findPageFile } from '../lib/find-page-file'
 import { getFormattedNodeOptionsWithoutInspect } from '../lib/utils'
 import { withCoalescedInvoke } from '../../lib/coalesced-function'
-import { loadDefaultErrorComponents } from '../load-default-error-components'
+import {
+  loadDefaultErrorComponents,
+  type ErrorModule,
+} from '../load-default-error-components'
 import { DecodeError, MiddlewareNotFoundError } from '../../shared/lib/utils'
 import * as Log from '../../build/output/log'
 import isError, { getProperError } from '../../lib/is-error'
+import { defaultConfig } from '../config-shared'
 import { isMiddlewareFile } from '../../build/utils'
 import { formatServerError } from '../../lib/format-server-error'
 import { DevRouteMatcherManager } from '../route-matcher-managers/dev-route-matcher-manager'
@@ -185,8 +189,14 @@ export default class DevServer extends Server {
     this.appDir = appDir
 
     if (this.nextConfig.experimental.serverComponentsHmrCache) {
-      this.serverComponentsHmrCache = new LRUCache(
+      // Ensure HMR cache has a minimum size equal to the default cacheMaxMemorySize,
+      // but allow it to grow if the user has configured a larger value.
+      const hmrCacheSize = Math.max(
         this.nextConfig.cacheMaxMemorySize,
+        defaultConfig.cacheMaxMemorySize
+      )
+      this.serverComponentsHmrCache = new LRUCache(
+        hmrCacheSize,
         function length(value) {
           return JSON.stringify(value).length
         }
@@ -423,6 +433,7 @@ export default class DevServer extends Server {
        */
       if (
         request.url.includes('/_next/static') ||
+        request.url.includes('/__nextjs_attach-nodejs-inspector') ||
         request.url.includes('/__nextjs_original-stack-frame') ||
         request.url.includes('/__nextjs_source-map') ||
         request.url.includes('/__nextjs_error_feedback')
@@ -511,7 +522,8 @@ export default class DevServer extends Server {
               requestEnd,
               getRequestMeta(req, 'devRequestTimingMiddlewareStart'),
               getRequestMeta(req, 'devRequestTimingMiddlewareEnd'),
-              getRequestMeta(req, 'devRequestTimingInternalsEnd')
+              getRequestMeta(req, 'devRequestTimingInternalsEnd'),
+              getRequestMeta(req, 'devGenerateStaticParamsDuration')
             )
           })
         }
@@ -825,7 +837,7 @@ export default class DevServer extends Server {
             // Ideally, we would want to compare the whole objects, but that is too expensive.
             result.prerenderedRoutes?.length !== prerenderedRoutes?.length
           ) {
-            this.bundlerService.triggerHMR({
+            this.bundlerService.sendHmrMessage({
               type: HMR_MESSAGE_SENT_TO_BROWSER.SERVER_COMPONENT_CHANGES,
               hash: `generateStaticParams-${Date.now()}`,
             })
@@ -977,7 +989,7 @@ export default class DevServer extends Server {
 
   protected async getFallbackErrorComponents(
     url?: string
-  ): Promise<LoadComponentsReturnType | null> {
+  ): Promise<LoadComponentsReturnType<ErrorModule> | null> {
     await this.bundlerService.getFallbackErrorComponents(url)
     return await loadDefaultErrorComponents(this.distDir)
   }
@@ -991,7 +1003,9 @@ export default class DevServer extends Server {
   ) {
     await super.instrumentationOnRequestError(...args)
 
-    const err = args[0]
-    this.logErrorWithOriginalStack(err, 'app-dir')
+    const [err, , , silenceLog] = args
+    if (!silenceLog) {
+      this.logErrorWithOriginalStack(err, 'app-dir')
+    }
   }
 }

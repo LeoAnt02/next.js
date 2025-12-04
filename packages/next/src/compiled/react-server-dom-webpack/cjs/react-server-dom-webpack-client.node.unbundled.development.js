@@ -66,11 +66,10 @@
       if ("fulfilled" === moduleExports.status)
         moduleExports = moduleExports.value;
       else throw moduleExports.reason;
-      return "*" === metadata.name
-        ? moduleExports
-        : "" === metadata.name
-          ? moduleExports.default
-          : moduleExports[metadata.name];
+      if ("*" === metadata.name) return moduleExports;
+      if ("" === metadata.name) return moduleExports.default;
+      if (hasOwnProperty.call(moduleExports, metadata.name))
+        return moduleExports[metadata.name];
     }
     function prepareDestinationWithChunks(
       moduleLoading,
@@ -3017,7 +3016,6 @@
           (resolveChunkDebugInfo(response, streamState, chunk),
           "pending" === chunk.status)
         ) {
-          releasePendingChunk(response, chunk);
           id = chunk.value;
           if (null != chunk._debugChunk) {
             streamState = initializingHandler;
@@ -3052,7 +3050,9 @@
               moveDebugInfoFromChunkToInnerValue(chunk, stream));
         }
       } else
-        (stream = new ReactPromise("fulfilled", stream, controller)),
+        0 === response._pendingChunks++ &&
+          (response._weakResponse.response = response),
+          (stream = new ReactPromise("fulfilled", stream, controller)),
           resolveChunkDebugInfo(response, streamState, stream),
           chunks.set(id, stream);
     }
@@ -4496,9 +4496,11 @@
           startAsyncIterable(response, id, !0, streamState);
           break;
         case 67:
-          (response = response._chunks.get(id)) &&
-            "fulfilled" === response.status &&
-            response.reason.close("" === row ? '"$undefined"' : row);
+          (id = response._chunks.get(id)) &&
+            "fulfilled" === id.status &&
+            (0 === --response._pendingChunks &&
+              (response._weakResponse.response = null),
+            id.reason.close("" === row ? '"$undefined"' : row));
           break;
         default:
           if ("" === row) {
@@ -4525,11 +4527,11 @@
     }
     function processBinaryChunk(weakResponse, streamState, chunk) {
       if (void 0 !== weakResponse.weak.deref()) {
-        var response = unwrapWeakResponse(weakResponse),
-          i = 0,
-          rowState = streamState._rowState;
-        weakResponse = streamState._rowID;
-        var rowTag = streamState._rowTag,
+        weakResponse = unwrapWeakResponse(weakResponse);
+        var i = 0,
+          rowState = streamState._rowState,
+          rowID = streamState._rowID,
+          rowTag = streamState._rowTag,
           rowLength = streamState._rowLength,
           buffer = streamState._buffer,
           chunkLength = chunk.length;
@@ -4544,8 +4546,8 @@
               lastIdx = chunk[i++];
               58 === lastIdx
                 ? (rowState = 1)
-                : (weakResponse =
-                    (weakResponse << 4) |
+                : (rowID =
+                    (rowID << 4) |
                     (96 < lastIdx ? lastIdx - 87 : lastIdx - 48));
               continue;
             case 1:
@@ -4554,6 +4556,7 @@
               65 === rowState ||
               79 === rowState ||
               111 === rowState ||
+              98 === rowState ||
               85 === rowState ||
               83 === rowState ||
               115 === rowState ||
@@ -4590,27 +4593,36 @@
           var offset = chunk.byteOffset + i;
           if (-1 < lastIdx)
             (rowLength = new Uint8Array(chunk.buffer, offset, lastIdx - i)),
-              processFullBinaryRow(
-                response,
-                streamState,
-                weakResponse,
-                rowTag,
-                buffer,
-                rowLength
-              ),
+              98 === rowTag
+                ? resolveBuffer(
+                    weakResponse,
+                    rowID,
+                    lastIdx === chunkLength ? rowLength : rowLength.slice(),
+                    streamState
+                  )
+                : processFullBinaryRow(
+                    weakResponse,
+                    streamState,
+                    rowID,
+                    rowTag,
+                    buffer,
+                    rowLength
+                  ),
               (i = lastIdx),
               3 === rowState && i++,
-              (rowLength = weakResponse = rowTag = rowState = 0),
+              (rowLength = rowID = rowTag = rowState = 0),
               (buffer.length = 0);
           else {
             chunk = new Uint8Array(chunk.buffer, offset, chunk.byteLength - i);
-            buffer.push(chunk);
-            rowLength -= chunk.byteLength;
+            98 === rowTag
+              ? ((rowLength -= chunk.byteLength),
+                resolveBuffer(weakResponse, rowID, chunk, streamState))
+              : (buffer.push(chunk), (rowLength -= chunk.byteLength));
             break;
           }
         }
         streamState._rowState = rowState;
-        streamState._rowID = weakResponse;
+        streamState._rowID = rowID;
         streamState._rowTag = rowTag;
         streamState._rowLength = rowLength;
       }
@@ -4853,6 +4865,7 @@
       React = require("react"),
       decoderOptions = { stream: !0 },
       bind$1 = Function.prototype.bind,
+      hasOwnProperty = Object.prototype.hasOwnProperty,
       asyncModuleCache = new Map(),
       ReactDOMSharedInternals =
         ReactDOM.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,
@@ -4886,7 +4899,6 @@
       v8FrameRegExp =
         /^ {3} at (?:(.+) \((.+):(\d+):(\d+)\)|(?:async )?(.+):(\d+):(\d+))$/,
       jscSpiderMonkeyFrameRegExp = /(?:(.*)@)?(.*):(\d+):(\d+)/,
-      hasOwnProperty = Object.prototype.hasOwnProperty,
       REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"),
       supportsUserTiming =
         "undefined" !== typeof console &&

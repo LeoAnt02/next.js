@@ -11,7 +11,8 @@
 "use strict";
 var util = require("util"),
   ReactDOM = require("react-dom"),
-  decoderOptions = { stream: !0 };
+  decoderOptions = { stream: !0 },
+  hasOwnProperty = Object.prototype.hasOwnProperty;
 function resolveClientReference(bundlerConfig, metadata) {
   if (bundlerConfig) {
     var moduleExports = bundlerConfig[metadata[0]];
@@ -100,13 +101,11 @@ function requireModule(metadata) {
     if ("fulfilled" === moduleExports.status)
       moduleExports = moduleExports.value;
     else throw moduleExports.reason;
-  return "*" === metadata[2]
-    ? moduleExports
-    : "" === metadata[2]
-      ? moduleExports.__esModule
-        ? moduleExports.default
-        : moduleExports
-      : moduleExports[metadata[2]];
+  if ("*" === metadata[2]) return moduleExports;
+  if ("" === metadata[2])
+    return moduleExports.__esModule ? moduleExports.default : moduleExports;
+  if (hasOwnProperty.call(moduleExports, metadata[2]))
+    return moduleExports[metadata[2]];
 }
 function prepareDestinationWithChunks(moduleLoading, chunks, nonce$jscomp$0) {
   if (null !== moduleLoading)
@@ -1940,6 +1939,7 @@ function processBinaryChunk(weakResponse, streamState, chunk) {
         65 === rowState ||
         79 === rowState ||
         111 === rowState ||
+        98 === rowState ||
         85 === rowState ||
         83 === rowState ||
         115 === rowState ||
@@ -1974,22 +1974,30 @@ function processBinaryChunk(weakResponse, streamState, chunk) {
     var offset = chunk.byteOffset + i;
     if (-1 < lastIdx)
       (rowLength = new Uint8Array(chunk.buffer, offset, lastIdx - i)),
-        processFullBinaryRow(
-          weakResponse,
-          streamState,
-          rowID,
-          rowTag,
-          buffer,
-          rowLength
-        ),
+        98 === rowTag
+          ? resolveBuffer(
+              weakResponse,
+              rowID,
+              lastIdx === chunkLength ? rowLength : rowLength.slice()
+            )
+          : processFullBinaryRow(
+              weakResponse,
+              streamState,
+              rowID,
+              rowTag,
+              buffer,
+              rowLength
+            ),
         (i = lastIdx),
         3 === rowState && i++,
         (rowLength = rowID = rowTag = rowState = 0),
         (buffer.length = 0);
     else {
-      weakResponse = new Uint8Array(chunk.buffer, offset, chunk.byteLength - i);
-      buffer.push(weakResponse);
-      rowLength -= weakResponse.byteLength;
+      chunk = new Uint8Array(chunk.buffer, offset, chunk.byteLength - i);
+      98 === rowTag
+        ? ((rowLength -= chunk.byteLength),
+          resolveBuffer(weakResponse, rowID, chunk))
+        : (buffer.push(chunk), (rowLength -= chunk.byteLength));
       break;
     }
   }

@@ -52,7 +52,7 @@ use super::{
 };
 use crate::{
     embed_js::next_js_file_path, mode::NextMode, next_app::metadata::split_extension,
-    next_font::issue::NextFontIssue, util::load_next_js_templateon,
+    next_font::issue::NextFontIssue, util::load_next_js_json_file,
 };
 
 pub mod font_fallback;
@@ -466,7 +466,7 @@ impl ImportMappingReplacement for NextFontGoogleFontFileReplacer {
 
 #[turbo_tasks::function]
 async fn load_font_data(project_root: FileSystemPath) -> Result<Vc<FontData>> {
-    let data: FontData = load_next_js_templateon(
+    let data: FontData = load_next_js_json_file(
         project_root,
         rcstr!("dist/compiled/@next/font/dist/google/font-data.json"),
     )
@@ -738,14 +738,14 @@ async fn get_mock_stylesheet(
     let loader_source = Vc::upcast(VirtualSource::new(
         loader_path.clone(),
         AssetContent::file(
-            File::from(format!(
+            FileContent::Content(File::from(format!(
                 "import data from './{}'; export default function load() {{ return data; }};",
                 response_path
                     .file_name()
                     .context("Must exist")?
                     .to_string_lossy(),
-            ))
-            .into(),
+            )))
+            .cell(),
         ),
     ));
     let mocked_response_asset = asset_context
@@ -756,7 +756,7 @@ async fn get_mock_stylesheet(
         .module();
 
     let entries = get_evaluate_entries(mocked_response_asset, asset_context, None);
-    let module_graph = ModuleGraph::from_modules(entries.graph_entries(), false);
+    let module_graph = ModuleGraph::from_modules(entries.graph_entries(), false, false);
 
     let root = mock_fs.root().owned().await?;
     let val = evaluate(

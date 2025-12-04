@@ -414,12 +414,28 @@ export interface ExperimentalConfig {
   turbopackScopeHoisting?: boolean
 
   /**
+   * Enable nested async chunking for client side assets. Defaults to true in build mode and false in dev mode.
+   * This optimization computes all possible paths through dynamic imports in the applications to figure out the modules needed at dynamic imports for every path.
+   */
+  turbopackClientSideNestedAsyncChunking?: boolean
+
+  /**
+   * Enable nested async chunking for server side assets. Defaults to false in dev and build mode.
+   * This optimization computes all possible paths through dynamic imports in the applications to figure out the modules needed at dynamic imports for every path.
+   */
+  turbopackServerSideNestedAsyncChunking?: boolean
+
+  /**
    * Enable filesystem cache for the turbopack dev server.
+   *
+   * Defaults to `true`.
    */
   turbopackFileSystemCacheForDev?: boolean
 
   /**
    * Enable filesystem cache for the turbopack build.
+   *
+   * Defaults to `false`.
    */
   turbopackFileSystemCacheForBuild?: boolean
 
@@ -429,9 +445,19 @@ export interface ExperimentalConfig {
   turbopackSourceMaps?: boolean
 
   /**
+   * Enable extraction of source maps from input files. Defaults to true.
+   */
+  turbopackInputSourceMaps?: boolean
+
+  /**
    * Enable tree shaking for the turbopack dev server and build.
    */
   turbopackTreeShaking?: boolean
+
+  /**
+   * Enable removing unused imports for turbopack dev server and build.
+   */
+  turbopackRemoveUnusedImports?: boolean
 
   /**
    * Enable removing unused exports for turbopack dev server and build.
@@ -1466,7 +1492,6 @@ export const defaultConfig = Object.freeze({
     appNavFailHandling: false,
     prerenderEarlyExit: true,
     serverMinification: true,
-    serverSourceMaps: false,
     linkNoTouchStart: false,
     caseSensitiveRoutes: false,
     clientParamParsingOrigins: undefined,
@@ -1544,6 +1569,8 @@ export const defaultConfig = Object.freeze({
     hideLogsAfterAbort: false,
     mcpServer: true,
     optimizeRouterScrolling: false,
+    turbopackFileSystemCacheForDev: true,
+    turbopackFileSystemCacheForBuild: false,
   },
   htmlLimitedBots: undefined,
   bundlePagesRouterDependencies: false,
