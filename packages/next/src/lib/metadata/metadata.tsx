@@ -165,13 +165,11 @@ export function createMetadataComponents({
       )
     }
     return (
-      <div hidden>
-        <MetadataBoundary>
-          <Suspense name="Next.Metadata">
-            <Metadata />
-          </Suspense>
-        </MetadataBoundary>
-      </div>
+      <MetadataBoundary>
+        <Suspense name="Next.Metadata">
+          <Metadata />
+        </Suspense>
+      </MetadataBoundary>
     )
   }
 
