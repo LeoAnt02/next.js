@@ -1,10 +1,173 @@
+#[doc(hidden)]
+pub mod macro_helpers;
+
+use std::ptr::copy_nonoverlapping;
+
 use ::smallvec::SmallVec;
 use bincode::{
     BorrowDecode, Decode, Encode,
-    de::{BorrowDecoder, Decoder},
-    enc::Encoder,
+    de::{BorrowDecoder, Decoder, DecoderImpl, read::Reader},
+    enc::{Encoder, EncoderImpl, write::Writer},
     error::{DecodeError, EncodeError},
 };
+
+pub const TURBO_BINCODE_CONFIG: bincode::config::Configuration = bincode::config::standard();
+pub type TurboBincodeBuffer = SmallVec<[u8; 16]>;
+pub type TurboBincodeEncoder<'a> =
+    EncoderImpl<TurboBincodeWriter<'a>, bincode::config::Configuration>;
+pub type TurboBincodeDecoder<'a> =
+    DecoderImpl<TurboBincodeReader<'a>, bincode::config::Configuration, ()>;
+
+fn new_turbo_bincode_encoder(buf: &mut TurboBincodeBuffer) -> TurboBincodeEncoder<'_> {
+    EncoderImpl::new(TurboBincodeWriter::new(buf), TURBO_BINCODE_CONFIG)
+}
+
+fn new_turbo_bincode_decoder(buffer: &[u8]) -> TurboBincodeDecoder<'_> {
+    DecoderImpl::new(TurboBincodeReader::new(buffer), TURBO_BINCODE_CONFIG, ())
+}
+
+/// Encode the value into a new [`SmallVec`] using a [`TurboBincodeEncoder`].
+///
+/// Note: If you can re-use a buffer, you should. That will always be cheaper than creating a new
+/// [`SmallVec`].
+pub fn turbo_bincode_encode<T: Encode>(value: &T) -> Result<TurboBincodeBuffer, EncodeError> {
+    let mut buffer = TurboBincodeBuffer::new();
+    turbo_bincode_encode_into(value, &mut buffer)?;
+    Ok(buffer)
+}
+
+pub fn turbo_bincode_encode_into<T: Encode>(
+    value: &T,
+    buffer: &mut TurboBincodeBuffer,
+) -> Result<(), EncodeError> {
+    let mut encoder = new_turbo_bincode_encoder(buffer);
+    value.encode(&mut encoder)?;
+    Ok(())
+}
+
+/// Decode using a [`TurboBincodeDecoder`] and check that the entire slice was consumed. Returns a
+/// [`DecodeError::ArrayLengthMismatch`] if some of the slice is not consumed during decoding.
+pub fn turbo_bincode_decode<T: Decode<()>>(buf: &[u8]) -> Result<T, DecodeError> {
+    let mut decoder = new_turbo_bincode_decoder(buf);
+    let val = T::decode(&mut decoder)?;
+    let remaining_buf = decoder.reader().buffer;
+    if !remaining_buf.is_empty() {
+        return Err(DecodeError::ArrayLengthMismatch {
+            required: buf.len() - remaining_buf.len(),
+            found: buf.len(),
+        });
+    }
+    Ok(val)
+}
+
+pub struct TurboBincodeWriter<'a> {
+    pub buffer: &'a mut TurboBincodeBuffer,
+}
+
+impl<'a> TurboBincodeWriter<'a> {
+    pub fn new(buffer: &'a mut TurboBincodeBuffer) -> Self {
+        Self { buffer }
+    }
+}
+
+impl Writer for TurboBincodeWriter<'_> {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), EncodeError> {
+        self.buffer.extend_from_slice(bytes);
+        Ok(())
+    }
+}
+
+/// This is equivalent to [`bincode::de::read::SliceReader`], but with a little `unsafe` code to
+/// avoid some redundant bounds checks, and `pub` access to the underlying `buffer`.
+pub struct TurboBincodeReader<'a> {
+    pub buffer: &'a [u8],
+}
+
+impl<'a> TurboBincodeReader<'a> {
+    pub fn new(buffer: &'a [u8]) -> Self {
+        Self { buffer }
+    }
+}
+
+impl Reader for TurboBincodeReader<'_> {
+    fn read(&mut self, target_buffer: &mut [u8]) -> Result<(), DecodeError> {
+        let len = target_buffer.len();
+        let (head, rest) =
+            self.buffer
+                .split_at_checked(len)
+                .ok_or_else(|| DecodeError::UnexpectedEnd {
+                    additional: len - self.buffer.len(),
+                })?;
+        // SAFETY:
+        // - We already checked the bounds.
+        // - These memory ranges can't overlap because it would violate rust aliasing rules.
+        // - `u8` is `Copy`.
+        unsafe {
+            copy_nonoverlapping(head.as_ptr(), target_buffer.as_mut_ptr(), len);
+        }
+        self.buffer = rest;
+        Ok(())
+    }
+
+    fn peek_read(&mut self, n: usize) -> Option<&[u8]> {
+        self.buffer.get(..n)
+    }
+
+    fn consume(&mut self, n: usize) {
+        self.buffer = &self.buffer[n..];
+    }
+}
+
+/// Represents a type that can only be encoded with a [`TurboBincodeEncoder`].
+///
+/// All traits implementing this must also implement the more generic [`Encode`] trait, but they
+/// should panic if any other encoder is used.
+///
+/// Use [`impl_encode_for_turbo_bincode_encode`] to automatically implement the [`Encode`] trait
+/// from this one.
+pub trait TurboBincodeEncode: Encode {
+    fn encode(&self, encoder: &mut TurboBincodeEncoder) -> Result<(), EncodeError>;
+}
+
+/// Represents a type that can only be decoded with a [`TurboBincodeDecoder`] and an empty `()`
+/// context.
+///
+/// All traits implementing this must also implement the more generic [`Decode`] trait, but they
+/// should panic if any other encoder is used.
+///
+/// Use [`impl_decode_for_turbo_bincode_decode`] to automatically implement the [`Decode`] trait
+/// from this one.
+pub trait TurboBincodeDecode<Context>: Decode<Context> {
+    fn decode(decoder: &mut TurboBincodeDecoder) -> Result<Self, DecodeError>;
+}
+
+#[macro_export]
+macro_rules! impl_encode_for_turbo_bincode_encode {
+    ($ty:ty) => {
+        impl $crate::macro_helpers::bincode::Encode for $ty {
+            fn encode<'a, E: $crate::macro_helpers::bincode::enc::Encoder>(
+                &self,
+                encoder: &'a mut E,
+            ) -> ::std::result::Result<(), $crate::macro_helpers::bincode::error::EncodeError> {
+                $crate::macro_helpers::encode_for_turbo_bincode_encode_impl(self, encoder)
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_decode_for_turbo_bincode_decode {
+    ($ty:ty) => {
+        impl<Context> $crate::macro_helpers::bincode::Decode<Context> for $ty {
+            fn decode<D: $crate::macro_helpers::bincode::de::Decoder<Context = Context>>(
+                decoder: &mut D,
+            ) -> ::std::result::Result<Self, $crate::macro_helpers::bincode::error::DecodeError>
+            {
+                $crate::macro_helpers::decode_for_turbo_bincode_decode_impl(decoder)
+            }
+        }
+    };
+}
 
 pub mod indexmap {
     use std::hash::{BuildHasher, Hash};
