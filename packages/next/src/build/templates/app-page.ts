@@ -170,6 +170,7 @@ export async function handler(
     nextConfig,
     parsedUrl,
     interceptionRoutePatterns,
+    deploymentId,
   } = prepareResult
 
   const normalizedSrcPage = normalizeAppPath(srcPage)
@@ -559,7 +560,7 @@ export async function handler(
           trailingSlash: nextConfig.trailingSlash,
           images: nextConfig.images,
           previewProps: prerenderManifest.preview,
-          deploymentId: nextConfig.deploymentId,
+          deploymentId: deploymentId,
           enableTainting: nextConfig.experimental.taint,
           optimizeForBots: nextConfig.experimental.optimizeForBots,
           htmlLimitedBots: nextConfig.htmlLimitedBots,
@@ -1164,8 +1165,8 @@ export async function handler(
       // default, we can remove the fallback to `onCacheEntry` as
       // `onCacheEntryV2` is now fully supported.
       const onCacheEntry = supportsRDCForNavigations
-        ? getRequestMeta(req, 'onCacheEntryV2') ??
-          getRequestMeta(req, 'onCacheEntry')
+        ? (getRequestMeta(req, 'onCacheEntryV2') ??
+          getRequestMeta(req, 'onCacheEntry'))
         : getRequestMeta(req, 'onCacheEntry')
       if (onCacheEntry) {
         const finished = await onCacheEntry(cacheEntry, {
