@@ -9108,7 +9108,6 @@ dependencies = [
  "mime",
  "ringmap",
  "serde",
- "serde_json",
  "smallvec",
  "unty",
 ]
@@ -9131,10 +9130,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "turbo-frozenmap"
+version = "0.1.0"
+dependencies = [
+ "bincode 2.0.1",
+ "indexmap 2.9.0",
+ "serde",
+]
+
+[[package]]
 name = "turbo-persistence"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode 2.0.1",
  "bitfield",
  "byteorder",
  "dashmap 6.1.0",
@@ -9154,6 +9163,7 @@ dependencies = [
  "tempfile",
  "thread_local",
  "tracing",
+ "turbo-bincode",
  "twox-hash 2.1.0",
  "zstd",
 ]
@@ -9227,7 +9237,6 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "pin-project-lite",
- "pot",
  "rayon",
  "regex",
  "rustc-hash 2.1.1",
@@ -9242,6 +9251,7 @@ dependencies = [
  "triomphe 0.1.12",
  "turbo-bincode",
  "turbo-dyn-eq-hash",
+ "turbo-frozenmap",
  "turbo-rcstr",
  "turbo-tasks-hash",
  "turbo-tasks-macros",
@@ -9664,6 +9674,7 @@ dependencies = [
  "tokio",
  "tracing",
  "turbo-bincode",
+ "turbo-frozenmap",
  "turbo-prehash",
  "turbo-rcstr",
  "turbo-tasks",
@@ -9879,7 +9890,6 @@ dependencies = [
  "regex",
  "rustc-hash 2.1.1",
  "serde",
- "serde_with",
  "turbo-bincode",
  "turbo-rcstr",
  "turbo-tasks",
@@ -9907,6 +9917,7 @@ dependencies = [
  "anyhow",
  "markdown",
  "mdxjs",
+ "serde",
  "turbo-rcstr",
  "turbo-tasks",
  "turbo-tasks-fs",
