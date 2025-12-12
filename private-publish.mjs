@@ -55,6 +55,15 @@ const success = (message) =>
 let config = { ...defaults }
 let cleanupTasks = []
 
+function getNpmEnv() {
+  // npm may ignore .npmrc files inside workspace packages.
+  // Force npm to use the generated config we write in `setupNpmrc()`.
+  return {
+    ...process.env,
+    NPM_CONFIG_USERCONFIG: ORIGINAL_NPMRC,
+  }
+}
+
 function printUsage() {
   console.log(`Usage: node ${__filename} [OPTIONS]
 
@@ -294,10 +303,13 @@ async function verifyAuthentication() {
   log('Verifying authentication...')
 
   try {
-    const { stdout } = await execAsync('npm whoami', {
-      cwd: PACKAGE_DIR,
-      env: { ...process.env },
-    })
+    const { stdout } = await execAsync(
+      `npm whoami --registry "${config.registryUrl}"`,
+      {
+        cwd: PACKAGE_DIR,
+        env: getNpmEnv(),
+      }
+    )
     const authenticatedUser = stdout.trim()
     success(`Authenticated as: ${authenticatedUser}`)
     return authenticatedUser
@@ -313,7 +325,7 @@ async function checkExistingVersion(packageName, version) {
   try {
     await execAsync(`npm view "${packageName}@${version}" version`, {
       cwd: PACKAGE_DIR,
-      env: { ...process.env },
+      env: getNpmEnv(),
     })
 
     warn(`Version ${version} already exists in registry`)
@@ -349,7 +361,7 @@ async function verifyPackageContents() {
   try {
     const { stdout } = await execAsync('npm pack --dry-run', {
       cwd: PACKAGE_DIR,
-      env: { ...process.env },
+      env: getNpmEnv(),
     })
     console.log(stdout)
   } catch (err) {
@@ -371,7 +383,7 @@ async function publishPackage(packageName, version) {
       `npm publish --access ${config.access} --provenance=false`,
       {
         cwd: PACKAGE_DIR,
-        env: { ...process.env },
+        env: getNpmEnv(),
       }
     )
 
@@ -384,7 +396,7 @@ async function publishPackage(packageName, version) {
     try {
       await execAsync(`npm view "${packageName}@${version}" version`, {
         cwd: PACKAGE_DIR,
-        env: { ...process.env },
+        env: getNpmEnv(),
       })
       success('Package verification successful')
     } catch (verifyErr) {
