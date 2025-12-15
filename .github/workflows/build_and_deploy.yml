@@ -3,6 +3,8 @@ name: build-and-deploy
 
 on:
   push:
+    branches:
+      - '*'
   # we need the preview tarball for deploy tests
   pull_request:
     types: [opened, synchronize]
