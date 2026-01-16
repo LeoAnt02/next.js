@@ -11,7 +11,7 @@ import url from 'url'
 import path from 'path'
 import fs from 'fs/promises'
 import crypto from 'crypto'
-import loadConfig from '../config'
+import loadConfig, { type ConfiguredExperimentalFeature } from '../config'
 import { serveStatic } from '../serve-static'
 import setupDebug from 'next/dist/compiled/debug'
 import * as Log from '../../build/output/log'
@@ -102,10 +102,18 @@ export async function initialize(opts: {
     process.env.NODE_ENV = opts.dev ? 'development' : 'production'
   }
 
+  let experimentalFeatures: ConfiguredExperimentalFeature[] = []
   const config = await loadConfig(
     opts.dev ? PHASE_DEVELOPMENT_SERVER : PHASE_PRODUCTION_SERVER,
     opts.dir,
-    { silent: false }
+    {
+      silent: false,
+      reportExperimentalFeatures(features) {
+        experimentalFeatures = features.toSorted(({ key: a }, { key: b }) =>
+          a.localeCompare(b)
+        )
+      },
+    }
   )
 
   let compress: ReturnType<typeof setupCompression> | undefined
@@ -372,7 +380,7 @@ export async function initialize(opts: {
           req.url = removePathPrefix(origUrl, config.assetPrefix)
         }
 
-        const parsedUrl = url.parse(req.url || '/')
+        const parsedUrl = parseUrlUtil(req.url || '/')
 
         const hotReloaderResult = await development.bundler.hotReloader.run(
           req,
@@ -418,7 +426,7 @@ export async function initialize(opts: {
           req.url = removePathPrefix(origUrl, config.assetPrefix)
         }
 
-        if (resHeaders) {
+        if (resHeaders !== null) {
           for (const key of Object.keys(resHeaders)) {
             res.setHeader(key, resHeaders[key])
           }
@@ -445,8 +453,10 @@ export async function initialize(opts: {
       })
 
       // apply any response headers from routing
-      for (const key of Object.keys(resHeaders || {})) {
-        res.setHeader(key, resHeaders[key])
+      if (resHeaders !== null) {
+        for (const key of Object.keys(resHeaders)) {
+          res.setHeader(key, resHeaders[key])
+        }
       }
 
       // handle redirect
@@ -499,7 +509,12 @@ export async function initialize(opts: {
           matchedOutput.type === 'nextStaticFolder'
         ) {
           if (opts.dev && !isNextFont(parsedUrl.pathname)) {
-            res.setHeader('Cache-Control', 'no-store, must-revalidate')
+            res.setHeader(
+              'Cache-Control',
+              config.experimental.devCacheControlNoCache
+                ? 'no-cache, must-revalidate'
+                : 'no-store, must-revalidate'
+            )
           } else {
             res.setHeader(
               'Cache-Control',
@@ -510,14 +525,9 @@ export async function initialize(opts: {
         if (!(req.method === 'GET' || req.method === 'HEAD')) {
           res.setHeader('Allow', ['GET', 'HEAD'])
           res.statusCode = 405
-          return await invokeRender(
-            url.parse('/405', true),
-            '/405',
-            handleIndex,
-            {
-              invokeStatus: 405,
-            }
-          )
+          return await invokeRender(parseUrlUtil('/405'), '/405', handleIndex, {
+            invokeStatus: 405,
+          })
         }
 
         // Check if we should process CSS files to remove @font-face for bots
@@ -611,7 +621,7 @@ export async function initialize(opts: {
             const invokeStatus = err.statusCode
             res.statusCode = err.statusCode
             return await invokeRender(
-              url.parse(invokePath, true),
+              parseUrlUtil(invokePath),
               invokePath,
               handleIndex,
               {
@@ -721,7 +731,7 @@ export async function initialize(opts: {
           console.error(err)
         }
         res.statusCode = Number(invokeStatus)
-        return await invokeRender(url.parse(invokePath, true), invokePath, 0, {
+        return await invokeRender(parseUrlUtil(invokePath), invokePath, 0, {
           invokeStatus: res.statusCode,
         })
       } catch (err2) {
@@ -764,6 +774,9 @@ export async function initialize(opts: {
     startServerSpan: opts.startServerSpan,
     quiet: opts.quiet,
     onDevServerCleanup: opts.onDevServerCleanup,
+    distDir: config.distDir,
+    experimentalFeatures,
+    cacheComponents: config.cacheComponents,
   }
   renderServerOpts.serverFields.routerServerHandler = requestHandlerImpl
 
@@ -935,5 +948,8 @@ export async function initialize(opts: {
     closeUpgraded() {
       development?.bundler?.hotReloader?.close()
     },
+    distDir: config.distDir,
+    experimentalFeatures,
+    cacheComponents: config.cacheComponents,
   }
 }

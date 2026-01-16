@@ -160,7 +160,14 @@ function addRevalidationHeader(
   // TODO-APP: Currently paths are treated as tags, so the second element of the tuple
   // is always empty.
 
-  const isTagRevalidated = workStore.pendingRevalidatedTags?.length ? 1 : 0
+  // Only count tags without a profile (updateTag) as requiring client cache invalidation
+  // Tags with a profile (revalidateTag) use stale-while-revalidate and shouldn't
+  // trigger immediate client-side cache invalidation
+  const isTagRevalidated = workStore.pendingRevalidatedTags?.some(
+    (item) => item.profile === undefined
+  )
+    ? 1
+    : 0
   const isCookieRevalidated = getModifiedCookieValues(
     requestStore.mutableCookies
   ).length
@@ -863,6 +870,13 @@ export async function handleAction({
           const { pipeline } =
             require('node:stream/promises') as typeof import('node:stream/promises')
 
+          // If actionBody was stashed in request meta (from parsing the postponed
+          // state prefix in minimal mode), use it instead of req.body
+          const actionBodyFromMeta = getRequestMeta(req, 'actionBody')
+          const body: import('node:stream').Readable = actionBodyFromMeta
+            ? Readable.from(actionBodyFromMeta)
+            : req.body
+
           const defaultBodySizeLimit = '1 MB'
           const bodySizeLimit =
             serverActions?.bodySizeLimit ?? defaultBodySizeLimit
@@ -916,7 +930,7 @@ export async function handleAction({
               const abortController = new AbortController()
               try {
                 ;[, boundActionArguments] = await Promise.all([
-                  pipeline(req.body, sizeLimitTransform, busboy, {
+                  pipeline(body, sizeLimitTransform, busboy, {
                     signal: abortController.signal,
                   }),
                   decodeReplyFromBusboy(busboy, serverModuleMap, {
@@ -949,7 +963,7 @@ export async function handleAction({
               const abortController = new AbortController()
               try {
                 ;[, formData] = await Promise.all([
-                  pipeline(req.body, sizeLimitTransform, sizeLimitedBody, {
+                  pipeline(body, sizeLimitTransform, sizeLimitedBody, {
                     signal: abortController.signal,
                   }),
                   fakeRequest.formData(),
@@ -1025,7 +1039,7 @@ export async function handleAction({
 
             const chunks: Buffer[] = []
             await Promise.all([
-              pipeline(req.body, sizeLimitTransform, sizeLimitedBody),
+              pipeline(body, sizeLimitTransform, sizeLimitedBody),
               (async () => {
                 for await (const chunk of sizeLimitedBody) {
                   chunks.push(Buffer.from(chunk))
@@ -1079,18 +1093,23 @@ export async function handleAction({
 
         // For form actions, we need to continue rendering the page.
         if (isFetchAction) {
+          // If we skip page rendering, we need to ensure pending revalidates
+          // are awaited before closing the response. Otherwise, this will be
+          // done after rendering the page.
+          const maybeRevalidatesPromise = skipPageRendering
+            ? executeRevalidates(workStore)
+            : false
+
           return {
             type: 'done',
             result: await generateFlight(req, ctx, requestStore, {
               actionResult: Promise.resolve(actionResult),
               skipPageRendering,
               temporaryReferences,
-              // If we skip page rendering, we need to ensure pending
-              // revalidates are awaited before closing the response. Otherwise,
-              // this will be done after rendering the page.
-              waitUntil: skipPageRendering
-                ? executeRevalidates(workStore)
-                : undefined,
+              waitUntil:
+                maybeRevalidatesPromise === false
+                  ? undefined
+                  : maybeRevalidatesPromise,
             }),
           }
         } else {
