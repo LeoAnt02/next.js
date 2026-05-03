@@ -2117,8 +2117,9 @@ export default abstract class Server<
         // must send `_rsc` param, otherwise actualHash is null and hash check fails.
         const url = new URL(req.url || '', 'http://localhost')
         setCacheBustingSearchParamWithHash(url, expectedHash)
+        const basePath = this.nextConfig.basePath || ''
         res.statusCode = 307
-        res.setHeader('location', `${url.pathname}${url.search}`)
+        res.setHeader('location', `${basePath}${url.pathname}${url.search}`)
         res.body('').send()
         return null
       }
